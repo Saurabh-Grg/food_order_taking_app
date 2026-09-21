@@ -97,7 +97,7 @@ class SettingsController extends GetxController {
                 saveSettings();
                 Get.back();
               },
-            )).toList(),
+            )),
           ],
         ),
       ),
@@ -131,7 +131,7 @@ class SettingsController extends GetxController {
                 saveSettings();
                 Get.back();
               },
-            )).toList(),
+            )),
           ],
         ),
       ),

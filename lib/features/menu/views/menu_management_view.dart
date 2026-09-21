@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../data/models/menu_category.dart';
-import '../../../routes/app_routes.dart';
 import '../../../widgets/common/error_view.dart';
 import '../../../widgets/common/loading_indicator.dart';
 import '../../home/controllers/home_controller.dart';
@@ -12,7 +11,7 @@ class MenuManagementView extends StatelessWidget {
   final MenuManagementController controller = Get.find();
   final HomeController homeController = Get.find();
 
-  MenuManagementView({Key? key}) : super(key: key);
+  MenuManagementView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -216,24 +215,6 @@ class MenuManagementView extends StatelessWidget {
         onPressed: () => controller.addNewMenuItem(),
         child: const Icon(Icons.add),
       ),
-      bottomNavigationBar: Obx(() => BottomNavigationBar(
-            currentIndex: homeController.currentNavIndex.value,
-            onTap: homeController.changeNavPage,
-            items: const [
-              BottomNavigationBarItem(
-                icon: Icon(Icons.receipt_long),
-                label: 'Orders',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.restaurant_menu),
-                label: 'Menu',
-              ),
-              BottomNavigationBarItem(
-                icon: Icon(Icons.settings),
-                label: 'Settings',
-              ),
-            ],
-          )),
     );
   }
 

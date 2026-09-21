@@ -1,154 +1,157 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:get/get.dart';
 import '../../../data/models/order_model.dart';
+import '../../tutorials/services/tutorial_service.dart';
+import '../controllers/home_controller.dart';
 
 class OrderCard extends StatelessWidget {
-  final Order order;
-  final VoidCallback onTap;
+  final OrderModel order;
+  final VoidCallback? onTap;
 
   const OrderCard({
-    Key? key,
+    super.key,
     required this.order,
-    required this.onTap,
-  }) : super(key: key);
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final formatter = DateFormat('MMM d, h:mm a');
+    final homeController = Get.find<HomeController>();
+    final tutorialService = Get.find<TutorialService>();
+    final isTutorialActive = tutorialService.isTutorialActive.value;
+    final isTestOrder = isTutorialActive &&
+        homeController.testOrder.value != null &&
+        order.id == homeController.testOrder.value!.id;
+
+    print('OrderCard build: order.id=${order.id}, isTestOrder=$isTestOrder, isTutorialActive=$isTutorialActive, onTap=${onTap != null ? "set" : "null"}');
 
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 5),
-      elevation: 2,
+      margin: EdgeInsets.only(bottom: 12),
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: isTestOrder
+            ? BorderSide(color: Theme.of(context).primaryColor, width: 2)
+            : BorderSide.none,
+      ),
       child: InkWell(
-        onTap: onTap,
+        onTap: isTutorialActive && !isTestOrder
+            ? () {
+          print('OrderCard tap ignored: order.id=${order.id} (tutorial active, not test order)');
+        }
+            : () {
+          print('OrderCard tapped: order.id=${order.id}, isTestOrder=$isTestOrder');
+          onTap?.call();
+        },
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Customer initial circle avatar
-                  CircleAvatar(
-                    child: Icon(
-                      _getStatusIcon(order.statusText.toLowerCase()),
-                      color: order.statusColor,
+                  Text(
+                    'Order #${order.id.substring(0, 8)}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  // Order info
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${order.customerName} - #${order.id.substring(0, 6)}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
+                  if (isTestOrder)
+                    Obx(() => Container(
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        homeController.formatTimer(homeController.tutorialTimerSeconds.value),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
                         ),
-                        Text(
-                          '${order.totalItems} items - ${formatter.format(order.orderTime)}',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Status indicator
+                      ),
+                    )),
+                ],
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Customer: ${order.customerName}',
+                style: TextStyle(fontSize: 14),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Items: ${order.items.length}',
+                style: TextStyle(fontSize: 14),
+              ),
+              SizedBox(height: 4),
+              Text(
+                'Total: \$${order.total.toStringAsFixed(2)}',
+                style: TextStyle(fontSize: 14),
+              ),
+              SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: order.statusColor.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10),
+                      color: _getStatusColor(order.status),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      order.statusText,
+                      _getStatusText(order.status),
                       style: TextStyle(
-                        color: order.statusColor,
-                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
                         fontSize: 12,
                       ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 5),
-              // Order type and total price
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        order.type == OrderType.pickup
-                            ? Icons.store
-                            : Icons.delivery_dining,
-                        color: Colors.grey[600],
-                        size: 20,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        order.type == OrderType.pickup ? 'Pickup' : 'Delivery',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                        ),
-                      ),
-                    ],
-                  ),
                   Text(
-                    'NRS ${order.total.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
+                    _formatDate(order.createdAt),
+                    style: TextStyle(
+                      color: Colors.grey[600],
                       fontSize: 12,
                     ),
                   ),
                 ],
               ),
-              // Pickup time if available
-              if (order.pickupTime != null)
-                Row(
-                  children: [
-                    Icon(
-                      Icons.access_time,
-                      color: Colors.grey[600],
-                      size: 20,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Pickup at ${formatter.format(order.pickupTime!)}',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
             ],
           ),
         ),
       ),
     );
   }
-  IconData _getStatusIcon(String status) {
+
+  Color _getStatusColor(String status) {
     switch (status) {
-      case 'pending':
-        return Icons.hourglass_empty;
+      case 'new':
+        return Colors.blue;
+      case 'in_progress':
+        return Colors.orange;
       case 'ready':
-        return Icons.done_all;
-      case 'accepted':
-        return Icons.check_circle_outline;
-      case 'preparing':
-        return Icons.restaurant;
-      case 'completed':
-        return Icons.check_circle;
+        return Colors.green;
       default:
-        return Icons.help_outline;
+        return Colors.grey;
     }
+  }
+
+  String _getStatusText(String status) {
+    switch (status) {
+      case 'new':
+        return 'New';
+      case 'in_progress':
+        return 'In Progress';
+      case 'ready':
+        return 'Ready';
+      default:
+        return status;
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.hour}:${date.minute.toString().padLeft(2, '0')}';
   }
 }

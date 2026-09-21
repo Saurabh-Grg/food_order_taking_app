@@ -8,9 +8,10 @@ class CustomButton extends StatelessWidget {
   final Color? textColor;
   final double width;
   final double height;
+  final int? borderRadius;
 
   const CustomButton({
-    Key? key,
+    super.key,
     required this.text,
     required this.onPressed,
     this.isLoading = false,
@@ -18,7 +19,8 @@ class CustomButton extends StatelessWidget {
     this.textColor,
     this.width = double.infinity,
     this.height = 48,
-  }) : super(key: key);
+    this.borderRadius,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +32,9 @@ class CustomButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: backgroundColor,
           foregroundColor: textColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(borderRadius?.toDouble() ?? 0),
+          ),
         ),
         child: isLoading
             ? const CircularProgressIndicator()

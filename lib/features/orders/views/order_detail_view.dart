@@ -1,497 +1,319 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 import '../../../data/models/order_model.dart';
-import '../../../widgets/buttons/custom_button.dart';
-import '../../../widgets/common/loading_indicator.dart';
+import '../../../routes/app_routes.dart';
+import '../../tutorials/services/tutorial_service.dart';
 import '../controllers/order_detail_controller.dart';
 
 class OrderDetailView extends GetView<OrderDetailController> {
-  const OrderDetailView({Key? key}) : super(key: key);
+  const OrderDetailView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Obx(() =>
-            Text('Order #${controller.order.value?.id.substring(0, 6) ?? ''}')),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => controller.refreshOrder(),
+    final tutorialService = Get.find<TutorialService>();
+
+    return WillPopScope(
+      onWillPop: () async {
+        if (tutorialService.isTutorialActive.value) {
+          // Show completion dialog during tutorial
+          _showCompletionDialog();
+          return false;
+        }
+        return true;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Order Details'),
+          leading: tutorialService.isTutorialActive.value
+              ? SizedBox() // Hide back button during tutorial
+              : BackButton(),
+        ),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Obx(() {
+              if (controller.isLoading.value) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              // if (controller.hasError.value) {
+              //   return Center(
+              //     child: Column(
+              //       mainAxisAlignment: MainAxisAlignment.center,
+              //       children: [
+              //         Text(controller.errorMessage.value),
+              //         const SizedBox(height: 16),
+              //         ElevatedButton(
+              //           onPressed: () => controller.refreshOrder(),
+              //           child: const Text('Retry'),
+              //         ),
+              //       ],
+              //     ),
+              //   );
+              // }
+
+              final order = controller.order;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildOrderInfo(order),
+                  SizedBox(height: 24),
+                  _buildItemsList(order),
+                  Spacer(),
+                  _buildActionButtons(context, order),
+                ],
+              );
+            }),
           ),
-        ],
+        ),
       ),
-      body: Obx(() {
-        if (controller.isLoading.value) {
-          return const LoadingIndicator();
-        }
-
-        if (controller.hasError.value) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(controller.errorMessage.value),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => controller.refreshOrder(),
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
-          );
-        }
-
-        final order = controller.order.value;
-        if (order == null) {
-          return const Center(child: Text('Order not found'));
-        }
-
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Order Status Card
-              _buildStatusCard(order, context),
-
-              const SizedBox(height: 24),
-
-              // Customer Information
-              _buildSectionHeader('Customer Information'),
-              _buildInfoCard([
-                _buildInfoRow('Name', order.customerName),
-                _buildInfoRow('Phone', order.customerPhone),
-                _buildInfoRow('Email', order.customerEmail),
-              ]),
-
-              const SizedBox(height: 24),
-
-              // Order Details
-              _buildSectionHeader('Order Details'),
-              _buildInfoCard([
-                _buildInfoRow('Order ID', '#${order.id}'),
-                _buildInfoRow('Order Type',
-                    order.type == OrderType.pickup ? 'Pickup' : 'Delivery'),
-                _buildInfoRow('Order Time',
-                    DateFormat('MMM d, yyyy h:mm a').format(order.orderTime)),
-                if (order.pickupTime != null)
-                  _buildInfoRow(
-                      'Pickup Time',
-                      DateFormat('MMM d, yyyy h:mm a')
-                          .format(order.pickupTime!)),
-                if (order.specialInstructions != null &&
-                    order.specialInstructions!.isNotEmpty)
-                  _buildInfoRow(
-                      'Special Instructions', order.specialInstructions!),
-              ]),
-
-              const SizedBox(height: 24),
-
-              // Order Items
-              _buildSectionHeader('Order Items'),
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: order.items.length,
-                itemBuilder: (context, index) {
-                  final item = order.items[index];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Quantity circle
-                          Container(
-                            width: 28,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: Theme.of(context)
-                                  .primaryColor
-                                  .withOpacity(0.2),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Center(
-                              child: Text(
-                                item.quantity.toString(),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).primaryColor,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          // Item details
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item.name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                if (item.modifiers.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Text(
-                                      item.modifiers.join(', '),
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                          // Item price
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                '\$${item.price.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              if (item.quantity > 1)
-                                Text(
-                                  '\$${item.subtotal.toStringAsFixed(2)}',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[600],
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 24),
-
-              // Order Summary
-              _buildSectionHeader('Order Summary'),
-              _buildInfoCard([
-                _buildInfoRow(
-                    'Subtotal', '\$${order.subtotal.toStringAsFixed(2)}'),
-                _buildInfoRow('Tax', '\$${order.tax.toStringAsFixed(2)}'),
-                if (order.deliveryFee > 0)
-                  _buildInfoRow('Delivery Fee',
-                      '\$${order.deliveryFee.toStringAsFixed(2)}'),
-                if (order.tip > 0)
-                  _buildInfoRow('Tip', '\$${order.tip.toStringAsFixed(2)}'),
-                _buildInfoRow(
-                  'Total',
-                  '\$${order.total.toStringAsFixed(2)}',
-                  boldValue: true,
-                  boldKey: true,
-                ),
-              ]),
-
-              const SizedBox(height: 32),
-
-              // Action buttons
-              _buildActionButtons(order, context),
-            ],
-          ),
-        );
-      }),
     );
   }
 
-  Widget _buildStatusCard(Order order, BuildContext context) {
+  Widget _buildOrderInfo(OrderModel order) {
     return Card(
-      color: order.statusColor.withOpacity(0.1),
-      elevation: 0,
+      elevation: 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: order.statusColor.withOpacity(0.5),
-          width: 1,
-        ),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              _getStatusIcon(order.status),
-              color: order.statusColor,
-              size: 32,
+            Text(
+              'Order #${order.id.substring(0, 8)}',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            SizedBox(height: 8),
+            Divider(),
+            SizedBox(height: 8),
+            _buildInfoRow('Customer', order.customerName),
+            _buildInfoRow('Phone', order.phoneNumber),
+            _buildInfoRow('Address', order.address),
+            _buildInfoRow('Status', _getStatusText(order.status)),
+            _buildInfoRow('Created', _formatDateTime(order.createdAt)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Colors.grey[700],
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItemsList(OrderModel order) {
+    return Expanded(
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Items',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: order.items.length,
+                  itemBuilder: (context, index) {
+                    final item = order.items[index];
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        item['name'] as String,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      subtitle: Text(
+                        'Quantity: ${item['quantity']}',
+                      ),
+                      trailing: Text(
+                        '\$${(item['price'] as double).toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Divider(),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
-                    'Order Status',
+                    'Total:',
                     style: TextStyle(
-                      fontSize: 14,
-                      color: order.statusColor.withOpacity(0.8),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
                     ),
                   ),
+                  SizedBox(width: 8),
                   Text(
-                    order.statusText,
+                    '\$${order.total.toStringAsFixed(2)}',
                     style: TextStyle(
-                      fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: order.statusColor,
+                      fontSize: 16,
+                      color: Theme.of(Get.context!).primaryColor,
                     ),
                   ),
                 ],
               ),
-            ),
-            if (order.status == OrderStatus.pending)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Text(
-                  'Action Required',
-                  style: TextStyle(
-                    color: Colors.orange,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        title,
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoCard(List<Widget> children) {
-    return Card(
-      elevation: 1,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: children,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(
-    String key,
-    String value, {
-    bool boldKey = false,
-    bool boldValue = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              key,
-              style: TextStyle(
-                color: Colors.grey[700],
-                fontWeight: boldKey ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              value,
-              style: TextStyle(
-                fontWeight: boldValue ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButtons(Order order, BuildContext context) {
-    // Only show action buttons for pending orders
-    if (order.status == OrderStatus.pending) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          CustomButton(
-            text: 'Accept Order',
-            textColor: Theme.of(context).primaryColor,
-            onPressed: () => _showPickupTimeDialog(context),
-          ),
-          const SizedBox(height: 12),
-          CustomButton(
-            text: 'Reject Order',
-            textColor: Colors.grey[400]!,
-            onPressed: () => _showRejectConfirmation(context),
-          ),
-        ],
-      );
-    }
-    // For accepted orders that are not yet ready
-    else if (order.status == OrderStatus.accepted ||
-        order.status == OrderStatus.preparing) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          CustomButton(
-            text: order.status == OrderStatus.accepted
-                ? 'Start Preparing'
-                : 'Mark as Ready',
-            textColor: Theme.of(context).primaryColor,
-            onPressed: () {
-              if (order.status == OrderStatus.accepted) {
-                controller.updateOrderStatus(OrderStatus.preparing);
-              } else {
-                controller.updateOrderStatus(OrderStatus.ready);
-              }
-            },
-          ),
-          const SizedBox(height: 12),
-          CustomButton(
-            text: 'Update Pickup Time',
-            textColor: Colors.grey[400]!,
-            onPressed: () => _showPickupTimeDialog(context),
-          ),
-        ],
-      );
-    }
-    // For ready orders
-    else if (order.status == OrderStatus.ready) {
-      return CustomButton(
-        text: 'Mark as Completed',
-        textColor: Theme.of(context).primaryColor,
-        onPressed: () => controller.updateOrderStatus(OrderStatus.completed),
-      );
-    }
-
-    // No actions for completed or cancelled orders
-    return const SizedBox.shrink();
-  }
-
-  void _showPickupTimeDialog(BuildContext context) {
-    final now = DateTime.now();
-    DateTime selectedTime = now.add(const Duration(minutes: 30));
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Set Pickup Time'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Please select a pickup time for this order:'),
-              const SizedBox(height: 16),
-              SizedBox(
-                height: 200,
-                child: CupertinoDatePicker(
-                  mode: CupertinoDatePickerMode.dateAndTime,
-                  initialDateTime: selectedTime,
-                  minimumDate: now,
-                  maximumDate: now.add(const Duration(days: 1)),
-                  onDateTimeChanged: (dateTime) {
-                    selectedTime = dateTime;
-                  },
-                ),
-              ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Get.back(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Get.back();
-                controller.acceptOrderWithPickupTime(selectedTime);
-              },
-              child: const Text('Confirm'),
-            ),
-          ],
-        );
-      },
+        ),
+      ),
     );
   }
 
-  void _showRejectConfirmation(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Reject Order'),
-          content: const Text('Are you sure you want to reject this order?'),
-          actions: [
-            TextButton(
-              onPressed: () => Get.back(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
+  Widget _buildActionButtons(BuildContext context, OrderModel order) {
+    final tutorialService = Get.find<TutorialService>();
+    final isTutorial = tutorialService.isTutorialActive.value;
+
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () {
+              if (isTutorial) {
+                // Show tutorial completion dialog
+                _showCompletionDialog();
+              } else {
+                controller.acceptOrder();
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              onPressed: () {
-                Get.back();
-                controller.updateOrderStatus(OrderStatus.cancelled);
-              },
-              child: const Text('Reject'),
             ),
-          ],
-        );
-      },
+            child: Text(
+              'Accept Order',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ),
+        SizedBox(width: 16),
+        Expanded(
+          child: OutlinedButton(
+            onPressed: isTutorial ? null : controller.rejectOrder,
+            style: OutlinedButton.styleFrom(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              side: BorderSide(
+                color: Colors.red,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              'Reject Order',
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  IconData _getStatusIcon(OrderStatus status) {
+  void _showCompletionDialog() {
+    final tutorialService = Get.find<TutorialService>();
+
+    Get.dialog(
+      WillPopScope(
+        onWillPop: () async => false,
+        child: AlertDialog(
+          title: Text('Tutorial Complete'),
+          content: Text(
+            'Congratulations! You have completed the tutorial.\n\n'
+                'Now you know how to receive and accept orders in the app.',
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                tutorialService.completeTutorial();
+                Get.back(); // Close dialog
+                Get.until((route) => route.settings.name == Routes.HOME);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(Get.context!).primaryColor,
+              ),
+              child: Text('Start Using the App'),
+            ),
+          ],
+        ),
+      ),
+      barrierDismissible: false,
+    );
+  }
+
+  String _getStatusText(String status) {
     switch (status) {
-      case OrderStatus.pending:
-        return Icons.hourglass_empty;
-      case OrderStatus.accepted:
-        return Icons.check_circle_outline;
-      case OrderStatus.preparing:
-        return Icons.restaurant;
-      case OrderStatus.ready:
-        return Icons.done_all;
-      case OrderStatus.completed:
-        return Icons.check_circle;
-      case OrderStatus.cancelled:
-        return Icons.cancel;
+      case 'new':
+        return 'New';
+      case 'in_progress':
+        return 'In Progress';
+      case 'ready':
+        return 'Ready';
       default:
-        return Icons.help_outline;
+        return status.capitalizeFirst ?? status;
     }
+  }
+
+  String _formatDateTime(DateTime dateTime) {
+    final date = '${dateTime.day}/${dateTime.month}/${dateTime.year}';
+    final time = '${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+    return '$date at $time';
   }
 }

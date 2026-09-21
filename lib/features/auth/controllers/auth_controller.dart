@@ -1,28 +1,29 @@
+import 'package:demo_restro_app/features/tutorials/services/tutorial_service.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../routes/app_routes.dart';
 
 class AuthController extends GetxController {
-  // Observables
-  var isLoading = false.obs;
-  var isPasswordVisible = false.obs;
-
-  // Form key
   final loginFormKey = GlobalKey<FormState>();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
 
-  // Text controllers
-  final emailController = TextEditingController();
-  final passwordController = TextEditingController();
+  final RxBool isPasswordVisible = false.obs;
+  final RxBool isLoading = false.obs;
+  final RxBool isFirstLogin = true.obs;
+
+  final TutorialService tutorialService = Get.find();
 
   @override
-  void onInit() {
+  void onInit() async {
     super.onInit();
-    // Initialize any required setup here
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    isFirstLogin.value = prefs.getBool('first_login') ?? true;
   }
 
   @override
   void onClose() {
-    // Clean up controllers
     emailController.dispose();
     passwordController.dispose();
     super.onClose();
@@ -33,59 +34,57 @@ class AuthController extends GetxController {
   }
 
   String? validateEmail(String? value) {
-    // if (value == null || value.isEmpty) {
-    //   return 'Please enter your email';
-    // }
-    // if (!GetUtils.isEmail(value)) {
-    //   return 'Please enter a valid email';
-    // }
-    // return null;
+    if (value == null || value.isEmpty) {
+      return 'Email is required';
+    }
+    if (!GetUtils.isEmail(value)) {
+      return 'Please enter a valid email';
+    }
+    return null;
   }
 
   String? validatePassword(String? value) {
-    // if (value == null || value.isEmpty) {
-    //   return 'Please enter your password';
-    // }
-    // if (value.length < 6) {
-    //   return 'Password must be at least 6 characters';
-    // }
-    // return null;
+    if (value == null || value.isEmpty) {
+      return 'Password is required';
+    }
+    if (value.length < 6) {
+      return 'Password must be at least 6 characters';
+    }
+    return null;
   }
 
-  void login() async {
-    if (loginFormKey.currentState!.validate()) {
-      try {
-        isLoading.value = true;
+  Future<void> login() async {
+    if (!loginFormKey.currentState!.validate()) {
+      return;
+    }
 
-        // Simulate API call
-        await Future.delayed(const Duration(seconds: 2));
+    isLoading.value = true;
 
-        // Add your authentication logic here
-        // For example:
-        // final response = await authService.login(
-        //   email: emailController.text,
-        //   password: passwordController.text,
-        // );
+    try {
+      // Simulate authentication
+      await Future.delayed(Duration(seconds: 2));
 
-        Get.snackbar(
-          'Success',
-          'Login successful',
-          snackPosition: SnackPosition.BOTTOM,
-        );
+      // Mark as logged in and track first login
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('is_logged_in', true);
 
-        // Navigate to home screen after successful login
-        Get.offAllNamed(Routes.HOME);
-      } catch (e) {
-        Get.snackbar(
-          'Error',
-          'Login failed: ${e.toString()}',
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
-        );
-      } finally {
-        isLoading.value = false;
+      bool isFirstTimeLogin = prefs.getBool('first_login') ?? true;
+      if (isFirstTimeLogin) {
+        await prefs.setBool('first_login', false);
       }
+
+      //remove this after testing
+      await tutorialService.resetTutorial();
+      // Navigate to home
+      Get.offAllNamed(Routes.MAIN);
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Login failed. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      isLoading.value = false;
     }
   }
 }
